@@ -6,6 +6,7 @@ use App\Http\Resources\ProductResource;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 use Str;
 
 class ProductController extends Controller
@@ -32,26 +33,34 @@ class ProductController extends Controller
      */
     public function store(Request $request)
     {
+        $validasi = Validator::make($request->all(), [
+            'name' => 'required|string',
+            'category' => 'required|in:t-shirt,jacket,hat,hoodie,accessories',
+            'price' => 'required|min:0',
+            'stock' => 'required|min:0',
+            'description' => 'required|string',
+            'image' => 'required|image|mimes:jpg,jpeg,png,webp,svg|max:2048',
+        ]);
+        if ($validasi->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validasi->errors()->first(),
+                'errors' => $validasi->errors()
+            ], 422);
+        }
         try {
-            $validasi = $request->validate([
-                'name' => 'required|string',
-                'category' => 'required|in:t-shirt,jacket,hat,hoodie,accessories',
-                'price' => 'required|min:0',
-                'stock' => 'required|min:0',
-                'description' => 'required|string',
-                'image' => 'required|image|mimes:jpg,jpeg,png,webp|max:2048',
-            ]);
             $images = $request->file('image');
             $images->storeAs('', $images->hashName(), 'public');
-            $slug = Str::slug($validasi['name']);
+            $slug = Str::slug($validasi->validated()['name']);
+            $validated = $validasi->validated();
             $product = Product::create([
-                'name' => $validasi['name'],
+                'name' => $validated['name'],
                 'slug' => $slug,
-                'category' => $validasi['category'],
-                'price' => $validasi['price'],
-                'stock' => $validasi['stock'],
-                'status' => $validasi['stock'] > 0 ? 'available' : 'out-of-stock',
-                'description' => $validasi['description'],
+                'category' => $validated['category'],
+                'price' => $validated['price'],
+                'stock' => $validated['stock'],
+                'status' => $validated['stock'] > 0 ? 'available' : 'out-of-stock',
+                'description' => $validated['description'],
                 'image' => $images->hashName(),
             ]);
             return response()->json([
